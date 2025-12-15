@@ -484,15 +484,12 @@
 
         createApp({
             setup() {
-                // Состояние приложения
                 const darkTheme = ref(false);
                 const colorCount = ref(5);
                 const colorFormat = ref('hex');
                 const palette = ref([]);
                 const showNotification = ref(false);
                 const copiedColor = ref('');
-                
-                // Генерация случайного цвета в формате HEX
                 const generateRandomColor = () => {
                     const letters = '0123456789ABCDEF';
                     let color = '#';
@@ -501,33 +498,27 @@
                     }
                     return color;
                 };
-                
-                // Преобразование HEX в RGB
                 const hexToRgb = (hex) => {
                     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
                     return result ? 
                         `rgb(${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)})` : 
                         '';
                 };
-                
-                // Генерация гармоничной палитры
+      
                 const generateHarmoniousPalette = () => {
                     const baseHue = Math.floor(Math.random() * 360);
                     const newPalette = [];
                     
                     for (let i = 0; i < colorCount.value; i++) {
-                        // Пропускаем закреплённые цвета
                         if (palette.value[i] && palette.value[i].pinned) {
                             newPalette.push(palette.value[i]);
                             continue;
                         }
-                        
-                        // Генерация гармоничного цвета на основе базового оттенка
+ 
                         const hue = (baseHue + (i * 360 / colorCount.value)) % 360;
                         const saturation = 50 + Math.random() * 40;
                         const lightness = 40 + Math.random() * 30;
-                        
-                        // Преобразование HSL в HEX
+       
                         const hslToHex = (h, s, l) => {
                             l /= 100;
                             const a = s * Math.min(l, 1 - l) / 100;
@@ -551,12 +542,10 @@
                     
                     return newPalette;
                 };
-                
-                // Генерация новой палитры
+           
                 const generatePalette = () => {
                     const newPalette = generateHarmoniousPalette();
                     
-                    // Сохраняем закреплённые цвета из текущей палитры
                     palette.value.forEach((color, index) => {
                         if (color.pinned && newPalette[index]) {
                             newPalette[index] = { ...color };
@@ -566,8 +555,7 @@
                     palette.value = newPalette;
                     saveToLocalStorage();
                 };
-                
-                // Регенерация одного цвета
+ 
                 const regenerateColor = (index) => {
                     if (palette.value[index].pinned) return;
                     
@@ -582,8 +570,7 @@
                     
                     saveToLocalStorage();
                 };
-                
-                // Копирование цвета в буфер обмена
+     
                 const copyToClipboard = async (color) => {
                     const textToCopy = colorFormat.value === 'hex' ? color.hex : color.rgb;
                     
@@ -613,14 +600,12 @@
                         }, 3000);
                     }
                 };
-                
-                // Закрепление/открепление цвета
+              
                 const togglePin = (color) => {
                     color.pinned = !color.pinned;
                     saveToLocalStorage();
                 };
                 
-                // Сброс палитры
                 const resetPalette = () => {
                     palette.value = palette.value.map(color => ({
                         ...color,
@@ -628,8 +613,7 @@
                     }));
                     generatePalette();
                 };
-                
-                // Переключение темы
+    
                 const toggleTheme = () => {
                     darkTheme.value = !darkTheme.value;
                     document.body.classList.toggle('light-theme');
@@ -637,11 +621,9 @@
                     localStorage.setItem('colorPaletteTheme', darkTheme.value ? 'dark' : 'light');
                 };
                 
-                // Получение контрастного цвета для текста
                 const getContrastColor = (hexColor) => {
                     if (!hexColor) return '#333';
-                    
-                    // Упрощённый расчёт яркости
+       
                     const hex = hexColor.replace('#', '');
                     const r = parseInt(hex.substr(0, 2), 16);
                     const g = parseInt(hex.substr(2, 2), 16);
@@ -651,7 +633,7 @@
                     return brightness > 128 ? '#333' : '#f0f0f0';
                 };
                 
-                // Сохранение в localStorage
+
                 const saveToLocalStorage = () => {
                     const data = {
                         palette: palette.value,
@@ -660,8 +642,7 @@
                     };
                     localStorage.setItem('colorPaletteData', JSON.stringify(data));
                 };
-                
-                // Загрузка из localStorage
+
                 const loadFromLocalStorage = () => {
                     const savedData = localStorage.getItem('colorPaletteData');
                     const savedTheme = localStorage.getItem('colorPaletteTheme');
@@ -680,7 +661,7 @@
                         if (data.palette && data.palette.length > 0) {
                             palette.value = data.palette;
                             
-                            // Если количество цветов изменилось, дополняем или обрезаем палитру
+                            
                             if (palette.value.length !== colorCount.value) {
                                 if (palette.value.length > colorCount.value) {
                                     palette.value = palette.value.slice(0, colorCount.value);
@@ -700,14 +681,12 @@
                         }
                     }
                     
-                    // Если нет сохранённых данных, генерируем новую палитру
+    
                     generatePalette();
                 };
-                
-                // Наблюдатели для автоматического сохранения
+              
                 watch(colorCount, (newVal, oldVal) => {
                     if (newVal !== oldVal) {
-                        // Адаптируем палитру к новому количеству цветов
                         if (newVal > oldVal) {
                             // Добавляем новые цвета
                             const neededColors = newVal - oldVal;
@@ -720,26 +699,22 @@
                                 });
                             }
                         } else {
-                            // Удаляем лишние цвета (начиная с конца, но сохраняя закреплённые)
                             const pinnedIndices = [];
                             palette.value.forEach((color, index) => {
                                 if (color.pinned) pinnedIndices.push(index);
                             });
                             
-                            // Сохраняем закреплённые цвета
                             const newPalette = palette.value.filter((color, index) => {
                                 if (color.pinned) return true;
                                 return index < newVal;
                             });
                             
-                            // Если закреплённые цвета были удалены, восстанавливаем их
                             pinnedIndices.forEach(index => {
                                 if (index < newVal && !newPalette.some(c => c === palette.value[index])) {
                                     newPalette.splice(index, 0, palette.value[index]);
                                 }
                             });
                             
-                            // Обрезаем до нужного количества
                             palette.value = newPalette.slice(0, newVal);
                         }
                         
