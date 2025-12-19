@@ -681,467 +681,896 @@
             `
         };
 
-        const GeneratorPage = {
-            setup(props, { emit }) {
-                const colorCount = ref(5);
-                const colorFormat = ref('hex');
-                const palette = ref([]);
-                const showNotification = ref(false);
-                const copiedColor = ref('');
-                const baseColor = ref('#4361ee');
-                const paletteType = ref('analogous');
-                const mood = ref('balanced');
-                const colorPoints = ref([]);
+        // Компонент страницы генератора
+const GeneratorPage = {
+    setup(props, { emit }) {
+        const colorCount = ref(5);
+        const colorFormat = ref('hex');
+        const palette = ref([]);
+        const showNotification = ref(false);
+        const copiedColor = ref('');
+        const baseColor = ref('#838456'); // Начальный цвет из примера
+        const paletteType = ref('analogous');
+        const mood = ref('balanced');
+        const colorPoints = ref([]);
+        const contrastAnalysis = ref(null);
+        
+        // Генерация случайного цвета
+        const generateRandomColor = () => {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        };
+        
+        // HEX to RGB
+        const hexToRgb = (hex) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? 
+                `rgb(${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)})` : 
+                '';
+        };
+        
+        // HEX to HSL
+        const hexToHsl = (hex) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            let r = parseInt(result[1], 16) / 255;
+            let g = parseInt(result[2], 16) / 255;
+            let b = parseInt(result[3], 16) / 255;
+            
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+            
+            if (max === min) {
+                h = s = 0;
+            } else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            
+            return {
+                h: Math.round(h * 360),
+                s: Math.round(s * 100),
+                l: Math.round(l * 100)
+            };
+        };
+        
+        // HSL to HEX
+        const hslToHex = (h, s, l) => {
+            l /= 100;
+            const a = s * Math.min(l, 1 - l) / 100;
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`;
+        };
+        
+        // Генерация различных типов палитр
+        const generatePalette = () => {
+            const baseHsl = hexToHsl(baseColor.value);
+            const newPalette = [];
+            
+            // Сохраняем закреплённые цвета
+            const pinnedColors = palette.value.filter(c => c.pinned);
+            
+            for (let i = 0; i < colorCount.value; i++) {
+                // Пропускаем закреплённые цвета
+                if (i < pinnedColors.length) {
+                    newPalette.push(pinnedColors[i]);
+                    continue;
+                }
                 
-                // Генерация случайного цвета
-                const generateRandomColor = () => {
-                    const letters = '0123456789ABCDEF';
-                    let color = '#';
-                    for (let i = 0; i < 6; i++) {
-                        color += letters[Math.floor(Math.random() * 16)];
-                    }
-                    return color;
-                };
+                let h = baseHsl.h;
+                let s = baseHsl.s;
+                let l = baseHsl.l;
                 
-                const hexToRgb = (hex) => {
-                    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-                    return result ? 
-                        `rgb(${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)})` : 
-                        '';
-                };
+                // Настройка по настроению
+                switch (mood.value) {
+                    case 'calm':
+                        s = Math.max(20, s - 20);
+                        l = Math.min(80, l + 10);
+                        break;
+                    case 'energetic':
+                        s = Math.min(100, s + 20);
+                        l = 50 + Math.random() * 20;
+                        break;
+                    case 'professional':
+                        s = Math.max(10, s - 30);
+                        l = 30 + Math.random() * 40;
+                        break;
+                    case 'vibrant':
+                        s = 80 + Math.random() * 20;
+                        l = 50 + Math.random() * 20;
+                        break;
+                    case 'balanced':
+                        // Для сбалансированного сохраняем оригинальные значения
+                        break;
+                }
                 
-                const hexToHsl = (hex) => {
-                    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-                    let r = parseInt(result[1], 16) / 255;
-                    let g = parseInt(result[2], 16) / 255;
-                    let b = parseInt(result[3], 16) / 255;
-                    
-                    const max = Math.max(r, g, b);
-                    const min = Math.min(r, g, b);
-                    let h, s, l = (max + min) / 2;
-                    
-                    if (max === min) {
-                        h = s = 0;
-                    } else {
-                        const d = max - min;
-                        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-                        switch (max) {
-                            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                            case g: h = (b - r) / d + 2; break;
-                            case b: h = (r - g) / d + 4; break;
-                        }
-                        h /= 6;
-                    }
-                    
-                    return {
-                        h: Math.round(h * 360),
-                        s: Math.round(s * 100),
-                        l: Math.round(l * 100)
-                    };
-                };
+                // Генерация по типу палитры
+                switch (paletteType.value) {
+                    case 'analogous':
+                        h = (baseHsl.h + (i * 30) - 60) % 360;
+                        break;
+                    case 'monochromatic':
+                        h = baseHsl.h;
+                        l = 20 + (i * (60 / colorCount.value));
+                        s = s - 10 + (i * (20 / colorCount.value));
+                        break;
+                    case 'triadic':
+                        h = (baseHsl.h + (i * 120)) % 360;
+                        break;
+                    case 'complementary':
+                        h = i % 2 === 0 ? baseHsl.h : (baseHsl.h + 180) % 360;
+                        l = i < 2 ? l : l + (i % 2 === 0 ? -10 : 10);
+                        break;
+                    case 'tetradic':
+                        h = (baseHsl.h + (i * 90)) % 360;
+                        break;
+                    case 'split-complementary':
+                        h = i === 0 ? baseHsl.h : (baseHsl.h + (i * 150)) % 360;
+                        break;
+                }
                 
-                const hslToHex = (h, s, l) => {
-                    l /= 100;
-                    const a = s * Math.min(l, 1 - l) / 100;
-                    const f = n => {
-                        const k = (n + h / 30) % 12;
-                        const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-                        return Math.round(255 * color).toString(16).padStart(2, '0');
-                    };
-                    return `#${f(0)}${f(8)}${f(4)}`;
-                };
+                const hex = hslToHex(h, s, l);
+                const rgb = hexToRgb(hex);
+                const hsl = `hsl(${h}, ${s}%, ${l}%)`;
                 
-                const generatePalette = () => {
-                    const baseHsl = hexToHsl(baseColor.value);
-                    const newPalette = [];
-                    
-                    const pinnedColors = palette.value.filter(c => c.pinned);
-                    
-                    for (let i = 0; i < colorCount.value; i++) {
-                        if (i < pinnedColors.length) {
-                            newPalette.push(pinnedColors[i]);
-                            continue;
-                        }
-                        
-                        let h = baseHsl.h;
-                        let s = baseHsl.s;
-                        let l = baseHsl.l;
-                        
-                        // Настройка по настроению
-                        switch (mood.value) {
-                            case 'calm':
-                                s = Math.max(20, s - 20);
-                                l = Math.min(80, l + 10);
-                                break;
-                            case 'energetic':
-                                s = Math.min(100, s + 20);
-                                l = 50 + Math.random() * 20;
-                                break;
-                            case 'professional':
-                                s = Math.max(10, s - 30);
-                                l = 30 + Math.random() * 40;
-                                break;
-                            case 'vibrant':
-                                s = 80 + Math.random() * 20;
-                                l = 50 + Math.random() * 20;
-                                break;
-                        }
-                        
-                        // Генерация по типу палитры
-                        switch (paletteType.value) {
-                            case 'analogous':
-                                h = (baseHsl.h + (i * 30) - 60) % 360;
-                                break;
-                            case 'monochromatic':
-                                h = baseHsl.h;
-                                l = 20 + (i * (60 / colorCount.value));
-                                break;
-                            case 'triadic':
-                                h = (baseHsl.h + (i * 120)) % 360;
-                                break;
-                            case 'complementary':
-                                h = i % 2 === 0 ? baseHsl.h : (baseHsl.h + 180) % 360;
-                                l = i < 2 ? l : l + (i % 2 === 0 ? -10 : 10);
-                                break;
-                            case 'tetradic':
-                                h = (baseHsl.h + (i * 90)) % 360;
-                                break;
-                            case 'split-complementary':
-                                h = i === 0 ? baseHsl.h : (baseHsl.h + (i * 150)) % 360;
-                                break;
-                        }
-                        
-                        const hex = hslToHex(h, s, l);
-                        const rgb = hexToRgb(hex);
-                        
-                        newPalette.push({
-                            hex,
-                            rgb,
-                            hsl: `hsl(${h}, ${s}%, ${l}%)`,
-                            pinned: false,
-                            h, s, l
-                        });
-                    }
-                    
-                    updateColorWheelPoints(newPalette);
-                    
-                    palette.value = newPalette;
-                    saveToLocalStorage();
-                };
-                
-                const updateColorWheelPoints = (palette) => {
-                    colorPoints.value = palette.map(color => {
-                        const hue = color.h;
-                        const radius = 120;
-                        const angle = (hue * Math.PI) / 180;
-                        const x = radius * Math.cos(angle);
-                        const y = radius * Math.sin(angle);
-                        
-                        return {
-                            x: 150 + x,
-                            y: 150 + y,
-                            color: color.hex
-                        };
-                    });
-                };
-                
-                const copyToClipboard = async (color) => {
-                    const textToCopy = colorFormat.value === 'hex' ? color.hex : 
-                                     colorFormat.value === 'rgb' ? color.rgb : color.hsl;
-                    
-                    try {
-                        await navigator.clipboard.writeText(textToCopy);
-                        copiedColor.value = textToCopy;
-                        showNotification.value = true;
-                        
-                        setTimeout(() => {
-                            showNotification.value = false;
-                        }, 3000);
-                    } catch (err) {
-                        console.error('Ошибка копирования: ', err);
-                    }
-                };
-                
-                // Переключение закрепления
-                const togglePin = (color) => {
-                    color.pinned = !color.pinned;
-                    saveToLocalStorage();
-                };
-                
-                const regenerateColor = (index) => {
-                    if (palette.value[index].pinned) return;
-                    
-                    const newColor = generateRandomColor();
-                    const rgb = hexToRgb(newColor);
-                    const hsl = hexToHsl(newColor);
-                    
-                    palette.value[index] = {
-                        hex: newColor,
-                        rgb,
-                        hsl: `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`,
-                        pinned: false,
-                        ...hsl
-                    };
-                    
-                    updateColorWheelPoints(palette.value);
-                    saveToLocalStorage();
-                };
-                
-                const calculateContrast = (color1, color2) => {
-                    const getLuminance = (hex) => {
-                        const rgb = hexToRgb(hex).match(/\d+/g).map(Number);
-                        const [r, g, b] = rgb.map(c => {
-                            c /= 255;
-                            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-                        });
-                        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                    };
-                    
-                    const l1 = getLuminance(color1);
-                    const l2 = getLuminance(color2);
-                    const lighter = Math.max(l1, l2);
-                    const darker = Math.min(l1, l2);
-                    
-                    return (lighter + 0.05) / (darker + 0.05);
-                };
-                
-                const getContrastRating = (ratio) => {
-                    if (ratio >= 7) return { rating: 'AAA', class: 'rating-aaa' };
-                    if (ratio >= 4.5) return { rating: 'AA', class: 'rating-aa' };
-                    return { rating: 'Недостаточно', class: 'rating-fail' };
-                };
-                
-                const saveToLocalStorage = () => {
-                    const data = {
-                        palette: palette.value,
-                        colorCount: colorCount.value,
-                        colorFormat: colorFormat.value,
-                        baseColor: baseColor.value,
-                        paletteType: paletteType.value,
-                        mood: mood.value
-                    };
-                    localStorage.setItem('colorPaletteData', JSON.stringify(data));
-                };
-                
-                const loadFromLocalStorage = () => {
-                    const savedData = localStorage.getItem('colorPaletteData');
-                    
-                    if (savedData) {
-                        const data = JSON.parse(savedData);
-                        colorCount.value = data.colorCount || 5;
-                        colorFormat.value = data.colorFormat || 'hex';
-                        baseColor.value = data.baseColor || '#4361ee';
-                        paletteType.value = data.paletteType || 'analogous';
-                        mood.value = data.mood || 'balanced';
-                        
-                        if (data.palette && data.palette.length > 0) {
-                            palette.value = data.palette;
-                            if (palette.value.length !== colorCount.value) {
-                                generatePalette();
-                            } else {
-                                updateColorWheelPoints(palette.value);
-                            }
-                            return;
-                        }
-                    }
-                    
-                    generatePalette();
-                };
-                
-                onMounted(() => {
-                    loadFromLocalStorage();
+                newPalette.push({
+                    hex,
+                    rgb,
+                    hsl,
+                    pinned: false,
+                    h, s, l
                 });
-                
-                watch([colorCount, baseColor, paletteType, mood], () => {
-                    generatePalette();
-                });
+            }
+            
+            // Обновляем точки на цветовом круге
+            updateColorWheelPoints(newPalette);
+            
+            palette.value = newPalette;
+            
+            // Выполняем анализ контрастности
+            analyzeContrast();
+            
+            saveToLocalStorage();
+        };
+        
+        // Обновление точек на цветовом круге
+        const updateColorWheelPoints = (palette) => {
+            colorPoints.value = palette.map(color => {
+                const hue = color.h;
+                const radius = 120;
+                const angle = (hue * Math.PI) / 180;
+                const x = radius * Math.cos(angle);
+                const y = radius * Math.sin(angle);
                 
                 return {
-                    colorCount,
-                    colorFormat,
-                    palette,
-                    showNotification,
-                    copiedColor,
-                    baseColor,
-                    paletteType,
-                    mood,
-                    colorPoints,
-                    generatePalette,
-                    regenerateColor,
-                    copyToClipboard,
-                    togglePin,
-                    calculateContrast,
-                    getContrastRating
+                    x: 150 + x,
+                    y: 150 + y,
+                    color: color.hex
                 };
-            },
-            template: `
-                <div>
-                    <h1 class="page-title">Генератор палитр</h1>
+            });
+        };
+        
+        // Расчёт контрастности по стандарту WCAG
+        const calculateContrast = (color1, color2) => {
+            const getLuminance = (hex) => {
+                const rgb = hex.match(/#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})/i);
+                if (!rgb) return 0;
+                
+                const [r, g, b] = [rgb[1], rgb[2], rgb[3]].map(channel => {
+                    const normalized = parseInt(channel, 16) / 255;
+                    return normalized <= 0.03928 
+                        ? normalized / 12.92 
+                        : Math.pow((normalized + 0.055) / 1.055, 2.4);
+                });
+                
+                return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            };
+            
+            const l1 = getLuminance(color1);
+            const l2 = getLuminance(color2);
+            const lighter = Math.max(l1, l2);
+            const darker = Math.min(l1, l2);
+            
+            return (lighter + 0.05) / (darker + 0.05);
+        };
+        
+        // Получение рейтинга контрастности
+        const getContrastRating = (ratio) => {
+            if (ratio >= 7) {
+                return { 
+                    rating: 'AAA', 
+                    class: 'rating-aaa',
+                    description: 'Отлично - высший уровень доступности',
+                    acceptable: true,
+                    icon: 'fa-check-circle',
+                    color: '#06d6a0'
+                };
+            }
+            if (ratio >= 4.5) {
+                return { 
+                    rating: 'AA', 
+                    class: 'rating-aa',
+                    description: 'Хорошо - соответствует стандартам',
+                    acceptable: true,
+                    icon: 'fa-check-circle',
+                    color: '#118ab2'
+                };
+            }
+            if (ratio >= 3) {
+                return { 
+                    rating: 'A (крупный текст)', 
+                    class: 'rating-aa',
+                    description: 'Минимально для крупного текста (≥24px)',
+                    acceptable: true,
+                    icon: 'fa-exclamation-triangle',
+                    color: '#ffd166'
+                };
+            }
+            return { 
+                rating: 'Недостаточно', 
+                class: 'rating-fail',
+                description: 'Не соответствует стандартам доступности WCAG',
+                acceptable: false,
+                icon: 'fa-times-circle',
+                color: '#ef476f'
+            };
+        };
+        
+        // Полный анализ контрастности палитры
+        const analyzeContrast = () => {
+            if (!palette.value || palette.value.length < 2) {
+                contrastAnalysis.value = null;
+                return;
+            }
+            
+            const analysis = {
+                pairs: [],
+                overallRating: 'good',
+                recommendations: [],
+                statistics: {
+                    totalPairs: 0,
+                    aaaPairs: 0,
+                    aaPairs: 0,
+                    minimalPairs: 0,
+                    failedPairs: 0,
+                    minContrast: 100,
+                    maxContrast: 0
+                }
+            };
+            
+            // Анализируем все возможные пары
+            for (let i = 0; i < palette.value.length; i++) {
+                for (let j = i + 1; j < palette.value.length; j++) {
+                    const color1 = palette.value[i].hex;
+                    const color2 = palette.value[j].hex;
+                    const ratio = calculateContrast(color1, color2);
+                    const rating = getContrastRating(ratio);
                     
-                    <div class="controls-grid">
-                        <div class="control-card">
-                            <h2 class="card-title"><i class="fas fa-sliders-h"></i> Настройки генерации</h2>
-                            <div style="margin-bottom: 15px;">
-                                <label>Базовый цвет:</label>
-                                <div class="color-picker-container">
-                                    <input type="color" v-model="baseColor" class="color-preview">
-                                    <input type="text" v-model="baseColor" class="color-input" maxlength="7">
+                    analysis.pairs.push({
+                        color1: { hex: color1, index: i },
+                        color2: { hex: color2, index: j },
+                        ratio: ratio,
+                        rating: rating
+                    });
+                    
+                    // Обновляем статистику
+                    analysis.statistics.totalPairs++;
+                    if (ratio >= 7) analysis.statistics.aaaPairs++;
+                    else if (ratio >= 4.5) analysis.statistics.aaPairs++;
+                    else if (ratio >= 3) analysis.statistics.minimalPairs++;
+                    else analysis.statistics.failedPairs++;
+                    
+                    analysis.statistics.minContrast = Math.min(analysis.statistics.minContrast, ratio);
+                    analysis.statistics.maxContrast = Math.max(analysis.statistics.maxContrast, ratio);
+                }
+            }
+            
+            // Определяем общий рейтинг
+            const failureRate = analysis.statistics.failedPairs / analysis.statistics.totalPairs;
+            if (failureRate > 0.5) {
+                analysis.overallRating = 'poor';
+            } else if (failureRate > 0.2) {
+                analysis.overallRating = 'fair';
+            } else if (analysis.statistics.aaaPairs / analysis.statistics.totalPairs > 0.5) {
+                analysis.overallRating = 'excellent';
+            } else {
+                analysis.overallRating = 'good';
+            }
+            
+            // Генерируем рекомендации
+            generateRecommendations(analysis);
+            
+            contrastAnalysis.value = analysis;
+        };
+        
+        // Генерация рекомендаций по улучшению
+        const generateRecommendations = (analysis) => {
+            const recommendations = [];
+            
+            // Рекомендации на основе статистики
+            if (analysis.statistics.failedPairs > 0) {
+                const failureRate = (analysis.statistics.failedPairs / analysis.statistics.totalPairs * 100).toFixed(1);
+                
+                recommendations.push({
+                    type: 'warning',
+                    icon: 'fa-exclamation-triangle',
+                    title: 'Низкая контрастность',
+                    message: `${analysis.statistics.failedPairs} из ${analysis.statistics.totalPairs} пар цветов (${failureRate}%) имеют недостаточный контраст`,
+                    actions: [
+                        'Измените тип палитры на комплементарную или триадическую',
+                        'Увеличьте насыщенность через настройку "Настроение"',
+                        'Используйте автоматическое улучшение контрастности'
+                    ]
+                });
+            }
+            
+            // Рекомендации на основе настроек
+            if (paletteType.value === 'analogous' && analysis.statistics.failedPairs > 0) {
+                recommendations.push({
+                    type: 'advice',
+                    icon: 'fa-lightbulb',
+                    title: 'Попробуйте другой тип палитры',
+                    message: 'Аналогичные палитры часто имеют низкий контраст между цветами',
+                    actions: [
+                        'Комплементарная: максимальный контраст',
+                        'Триадическая: сбалансированный контраст',
+                        'Тетрадическая: разнообразие контрастов'
+                    ]
+                });
+            }
+            
+            if (mood.value === 'calm' && analysis.statistics.failedPairs > 0) {
+                recommendations.push({
+                    type: 'advice',
+                    icon: 'fa-palette',
+                    title: 'Настроение влияет на контраст',
+                    message: 'Настроение "Спокойное" снижает насыщенность цветов',
+                    actions: [
+                        'Используйте "Энергичное" для большей насыщенности',
+                        'Попробуйте "Яркое" для максимального контраста',
+                        'Или "Профессиональное" для сбалансированных тонов'
+                    ]
+                });
+            }
+            
+            // Рекомендации на основе конкретных проблемных пар
+            const problematicPairs = analysis.pairs.filter(p => !p.rating.acceptable).slice(0, 3);
+            if (problematicPairs.length > 0) {
+                recommendations.push({
+                    type: 'specific',
+                    icon: 'fa-search',
+                    title: 'Проблемные сочетания',
+                    message: 'Эти пары требуют особого внимания:',
+                    pairs: problematicPairs.map(p => ({
+                        colors: `Цвет ${p.color1.index + 1} → Цвет ${p.color2.index + 1}`,
+                        contrast: `${p.ratio.toFixed(2)}:1`,
+                        rating: p.rating.rating
+                    }))
+                });
+            }
+            
+            // Позитивные рекомендации
+            if (analysis.statistics.aaaPairs > 0) {
+                recommendations.push({
+                    type: 'success',
+                    icon: 'fa-check-circle',
+                    title: 'Отличные сочетания найдены!',
+                    message: `${analysis.statistics.aaaPairs} пар соответствуют высшему стандарту AAA`,
+                    actions: [
+                        'Используйте эти цвета для основного текста',
+                        'Эти сочетания идеальны для важного контента'
+                    ]
+                });
+            }
+            
+            analysis.recommendations = recommendations;
+        };
+        
+        // Автоматическое улучшение контрастности
+        const autoFixContrast = () => {
+            const newPalette = [...palette.value];
+            let improvements = 0;
+            
+            // Улучшаем контраст между соседними цветами
+            for (let i = 0; i < newPalette.length; i++) {
+                for (let j = i + 1; j < newPalette.length; j++) {
+                    if (newPalette[i].pinned || newPalette[j].pinned) continue;
+                    
+                    const currentContrast = calculateContrast(newPalette[i].hex, newPalette[j].hex);
+                    
+                    if (currentContrast < 4.5) {
+                        const hsl1 = { h: newPalette[i].h, s: newPalette[i].s, l: newPalette[i].l };
+                        const hsl2 = { h: newPalette[j].h, s: newPalette[j].s, l: newPalette[j].l };
+                        
+                        // Увеличиваем разницу в яркости
+                        if (Math.abs(hsl1.l - hsl2.l) < 30) {
+                            if (hsl1.l > hsl2.l) {
+                                hsl1.l = Math.min(85, hsl1.l + 20);
+                                hsl2.l = Math.max(15, hsl2.l - 20);
+                            } else {
+                                hsl1.l = Math.max(15, hsl1.l - 20);
+                                hsl2.l = Math.min(85, hsl2.l + 20);
+                            }
+                            
+                            newPalette[i].hex = hslToHex(hsl1.h, hsl1.s, hsl1.l);
+                            newPalette[i].l = hsl1.l;
+                            newPalette[i].hsl = `hsl(${hsl1.h}, ${hsl1.s}%, ${hsl1.l}%)`;
+                            
+                            newPalette[j].hex = hslToHex(hsl2.h, hsl2.s, hsl2.l);
+                            newPalette[j].l = hsl2.l;
+                            newPalette[j].hsl = `hsl(${hsl2.h}, ${hsl2.s}%, ${hsl2.l}%)`;
+                            
+                            improvements++;
+                        }
+                    }
+                }
+            }
+            
+            if (improvements > 0) {
+                palette.value = newPalette;
+                updateColorWheelPoints(palette.value);
+                analyzeContrast();
+                saveToLocalStorage();
+                
+                // Показываем уведомление
+                showNotification.value = true;
+                copiedColor.value = `Улучшено ${improvements} цветовых пар`;
+                setTimeout(() => {
+                    showNotification.value = false;
+                }, 3000);
+            }
+        };
+        
+        // Создание доступной палитры
+        const generateAccessiblePalette = () => {
+            paletteType.value = 'complementary';
+            mood.value = 'vibrant';
+            generatePalette();
+        };
+        
+        // Копирование в буфер обмена
+        const copyToClipboard = async (color) => {
+            const textToCopy = colorFormat.value === 'hex' ? color.hex : 
+                             colorFormat.value === 'rgb' ? color.rgb : color.hsl;
+            
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                copiedColor.value = textToCopy;
+                showNotification.value = true;
+                
+                setTimeout(() => {
+                    showNotification.value = false;
+                }, 3000);
+            } catch (err) {
+                console.error('Ошибка копирования: ', err);
+            }
+        };
+        
+        // Переключение закрепления
+        const togglePin = (color) => {
+            color.pinned = !color.pinned;
+            saveToLocalStorage();
+        };
+        
+        // Регенерация одного цвета
+        const regenerateColor = (index) => {
+            if (palette.value[index].pinned) return;
+            
+            const newColor = generateRandomColor();
+            const rgb = hexToRgb(newColor);
+            const hsl = hexToHsl(newColor);
+            
+            palette.value[index] = {
+                hex: newColor,
+                rgb,
+                hsl: `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`,
+                pinned: false,
+                ...hsl
+            };
+            
+            updateColorWheelPoints(palette.value);
+            analyzeContrast();
+            saveToLocalStorage();
+        };
+        
+        // Получение контрастного цвета для текста
+        const getContrastColor = (hexColor) => {
+            const rgb = hexToRgb(hexColor).match(/\d+/g);
+            if (!rgb) return '#333';
+            
+            const [r, g, b] = rgb.map(Number);
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            return brightness > 128 ? '#333333' : '#ffffff';
+        };
+        
+        // Сохранение в localStorage
+        const saveToLocalStorage = () => {
+            const data = {
+                palette: palette.value,
+                colorCount: colorCount.value,
+                colorFormat: colorFormat.value,
+                baseColor: baseColor.value,
+                paletteType: paletteType.value,
+                mood: mood.value
+            };
+            localStorage.setItem('colorPaletteData', JSON.stringify(data));
+        };
+        
+        // Загрузка из localStorage
+        const loadFromLocalStorage = () => {
+            const savedData = localStorage.getItem('colorPaletteData');
+            
+            if (savedData) {
+                const data = JSON.parse(savedData);
+                colorCount.value = data.colorCount || 5;
+                colorFormat.value = data.colorFormat || 'hex';
+                baseColor.value = data.baseColor || '#838456';
+                paletteType.value = data.paletteType || 'analogous';
+                mood.value = data.mood || 'balanced';
+                
+                if (data.palette && data.palette.length > 0) {
+                    palette.value = data.palette;
+                    if (palette.value.length !== colorCount.value) {
+                        generatePalette();
+                    } else {
+                        updateColorWheelPoints(palette.value);
+                        analyzeContrast();
+                    }
+                    return;
+                }
+            }
+            
+            generatePalette();
+        };
+        
+        // Инициализация
+        onMounted(() => {
+            loadFromLocalStorage();
+        });
+        
+        // Наблюдатели
+        watch([colorCount, baseColor, paletteType, mood], () => {
+            generatePalette();
+        });
+        
+        return {
+            colorCount,
+            colorFormat,
+            palette,
+            showNotification,
+            copiedColor,
+            baseColor,
+            paletteType,
+            mood,
+            colorPoints,
+            contrastAnalysis,
+            generatePalette,
+            regenerateColor,
+            copyToClipboard,
+            togglePin,
+            calculateContrast,
+            getContrastRating,
+            autoFixContrast,
+            generateAccessiblePalette,
+            getContrastColor
+        };
+    },
+    template: `
+        <div>
+            <h1 class="page-title">Генератор палитр</h1>
+            
+            <div class="controls-grid">
+                <!-- Настройки генерации -->
+                <div class="control-card">
+                    <h2 class="card-title"><i class="fas fa-sliders-h"></i> Настройки генерации</h2>
+                    <div style="margin-bottom: 15px;">
+                        <label>Базовый цвет:</label>
+                        <div class="color-picker-container">
+                            <input type="color" v-model="baseColor" class="color-preview">
+                            <input type="text" v-model="baseColor" class="color-input" maxlength="7">
+                        </div>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                            Текущий: {{ baseColor }}
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label>Тип палитры:</label>
+                        <select v-model="paletteType">
+                            <option value="analogous">Аналогичная</option>
+                            <option value="monochromatic">Монохромная</option>
+                            <option value="triadic">Триада</option>
+                            <option value="complementary">Комплементарная</option>
+                            <option value="tetradic">Тетрадическая</option>
+                            <option value="split-complementary">Раздельно-комплементарная</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label>Настроение:</label>
+                        <select v-model="mood">
+                            <option value="balanced">Сбалансированное</option>
+                            <option value="calm">Спокойное</option>
+                            <option value="energetic">Энергичное</option>
+                            <option value="professional">Профессиональное</option>
+                            <option value="vibrant">Яркое</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label>Количество цветов: {{ colorCount }}</label>
+                        <input type="range" v-model="colorCount" min="3" max="7" step="1">
+                    </div>
+                    
+                    <button class="btn btn-primary" @click="generatePalette">
+                        <i class="fas fa-random"></i> Сгенерировать палитру
+                    </button>
+                </div>
+                
+                <!-- Анализ контрастности -->
+                <div class="control-card">
+                    <h2 class="card-title"><i class="fas fa-chart-line"></i> Анализ контрастности</h2>
+                    <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                        Стандарты WCAG: 
+                        <span style="color: #06d6a0; font-weight: 600;">AAA ≥ 7:1</span> | 
+                        <span style="color: #118ab2; font-weight: 600;">AA ≥ 4.5:1</span> | 
+                        <span style="color: #ef476f; font-weight: 600;">Недостаточно &lt; 4.5:1</span>
+                    </p>
+                    
+                    <!-- Статистика контрастности -->
+                    <div v-if="contrastAnalysis" style="margin-bottom: 20px;">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                            <div style="background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 12px; color: #666;">Всего пар:</div>
+                                <div style="font-size: 20px; font-weight: 600;">{{ contrastAnalysis.statistics.totalPairs }}</div>
+                            </div>
+                            <div style="background: #f8f9fa; padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 12px; color: #666;">Недостаточно:</div>
+                                <div style="font-size: 20px; font-weight: 600; color: #ef476f;">
+                                    {{ contrastAnalysis.statistics.failedPairs }}
                                 </div>
                             </div>
-                            
-                            <div style="margin-bottom: 15px;">
-                                <label>Тип палитры:</label>
-                                <select v-model="paletteType">
-                                    <option value="analogous">Аналогичная</option>
-                                    <option value="monochromatic">Монохромная</option>
-                                    <option value="triadic">Триада</option>
-                                    <option value="complementary">Комплементарная</option>
-                                    <option value="tetradic">Тетрадическая</option>
-                                    <option value="split-complementary">Раздельно-комплементарная</option>
-                                </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Примеры контрастности -->
+                    <div class="contrast-grid" style="margin-bottom: 20px;">
+                        <div v-if="palette.length >= 2" 
+                             class="contrast-item" 
+                             :style="{ 
+                                 backgroundColor: palette[0].hex, 
+                                 color: getContrastColor(palette[0].hex) 
+                             }">
+                            <div style="flex: 1;">
+                                <div style="font-size: 24px; font-weight: 600;">
+                                    {{ calculateContrast(palette[0].hex, palette[1].hex).toFixed(2) }}:1
+                                </div>
+                                <div style="font-size: 12px; opacity: 0.8;">
+                                    Цвет 1 → Цвет 2
+                                </div>
                             </div>
-                            
-                            <div style="margin-bottom: 15px;">
-                                <label>Настроение:</label>
-                                <select v-model="mood">
-                                    <option value="balanced">Сбалансированное</option>
-                                    <option value="calm">Спокойное</option>
-                                    <option value="energetic">Энергичное</option>
-                                    <option value="professional">Профессиональное</option>
-                                    <option value="vibrant">Яркое</option>
-                                </select>
+                            <div class="contrast-rating" :class="getContrastRating(calculateContrast(palette[0].hex, palette[1].hex)).class">
+                                {{ getContrastRating(calculateContrast(palette[0].hex, palette[1].hex)).rating }}
                             </div>
-                            
-                            <div style="margin-bottom: 15px;">
-                                <label>Количество цветов: {{ colorCount }}</label>
-                                <input type="range" v-model="colorCount" min="3" max="7" step="1">
-                            </div>
-                            
-                            <button class="btn btn-primary" @click="generatePalette">
-                                <i class="fas fa-random"></i> Сгенерировать палитру
-                            </button>
                         </div>
                         
-                        <div class="control-card">
-                            <h2 class="card-title"><i class="fas fa-chart-line"></i> Анализ контрастности</h2>
-                            <div class="contrast-grid">
-                                <div v-for="(contrast, index) in calculateContrastRatings()" :key="index" 
-                                     class="contrast-item" :style="{ backgroundColor: contrast.bg, color: contrast.text }">
-                                    <div class="contrast-ratio">{{ contrast.ratio.toFixed(2) }}:1</div>
-                                    <div class="contrast-rating" :class="contrast.rating.class">
-                                        {{ contrast.rating.rating }}
+                        <div v-if="palette.length >= 3" 
+                             class="contrast-item" 
+                             :style="{ 
+                                 backgroundColor: palette[1].hex, 
+                                 color: getContrastColor(palette[1].hex) 
+                             }">
+                            <div style="flex: 1;">
+                                <div style="font-size: 24px; font-weight: 600;">
+                                    {{ calculateContrast(palette[1].hex, palette[2].hex).toFixed(2) }}:1
+                                </div>
+                                <div style="font-size: 12px; opacity: 0.8;">
+                                    Цвет 2 → Цвет 3
+                                </div>
+                            </div>
+                            <div class="contrast-rating" :class="getContrastRating(calculateContrast(palette[1].hex, palette[2].hex)).class">
+                                {{ getContrastRating(calculateContrast(palette[1].hex, palette[2].hex)).rating }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Рекомендации -->
+                    <div v-if="contrastAnalysis && contrastAnalysis.recommendations.length > 0" 
+                         style="margin-top: 20px;">
+                        <h3 style="margin-bottom: 10px; font-size: 16px;">
+                            <i class="fas fa-lightbulb"></i> Рекомендации
+                        </h3>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            <div v-for="(rec, idx) in contrastAnalysis.recommendations" 
+                                 :key="idx" 
+                                 style="margin-bottom: 15px; padding: 15px; border-radius: 8px; 
+                                        background-color: #f8f9fa; border-left: 4px solid #ddd;">
+                                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                    <i :class="['fas', rec.icon]" 
+                                       :style="{ 
+                                           color: rec.type === 'warning' ? '#ef476f' : 
+                                                  rec.type === 'success' ? '#06d6a0' : '#4361ee',
+                                           fontSize: '18px',
+                                           marginTop: '2px'
+                                       }"></i>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; margin-bottom: 5px; color: #333;">
+                                            {{ rec.title }}
+                                        </div>
+                                        <div style="font-size: 14px; color: #666; margin-bottom: 8px;">
+                                            {{ rec.message }}
+                                        </div>
+                                        <div v-if="rec.actions" style="font-size: 13px; color: #555;">
+                                            <div v-for="(action, actionIdx) in rec.actions" 
+                                                 :key="actionIdx" 
+                                                 style="margin-bottom: 3px;">
+                                                • {{ action }}
+                                            </div>
+                                        </div>
+                                        <div v-if="rec.pairs" style="font-size: 13px; color: #555; margin-top: 8px;">
+                                            <div v-for="(pair, pairIdx) in rec.pairs" 
+                                                 :key="pairIdx" 
+                                                 style="margin-bottom: 3px; display: flex; justify-content: space-between;">
+                                                <span>{{ pair.colors }}</span>
+                                                <span style="font-weight: 600;">{{ pair.contrast }} ({{ pair.rating }})</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Цветовой круг -->
-                    <div class="control-card">
-                        <h2 class="card-title"><i class="fas fa-circle"></i> Цветовой круг</h2>
-                        <div class="color-wheel-container">
-                            <div class="color-wheel">
-                                <div v-for="(point, index) in colorPoints" :key="index" 
-                                     class="wheel-point" 
-                                     :style="{
-                                         left: point.x + 'px',
-                                         top: point.y + 'px',
-                                         backgroundColor: point.color
-                                     }"
-                                     :title="'Цвет ' + (index + 1)">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Палитра -->
-                    <div class="palette-container">
-                        <h2 class="card-title"><i class="fas fa-palette"></i> Цветовая палитра</h2>
-                        <div class="palette">
-                            <div 
-                                class="color-card" 
-                                v-for="(color, index) in palette" 
-                                :key="index"
-                                :style="{ backgroundColor: color.hex }"
-                                @click="copyToClipboard(color)"
-                            >
-                                <div class="color-info">
-                                    <div class="color-values">
-                                        {{ colorFormat === 'hex' ? color.hex : colorFormat === 'rgb' ? color.rgb : color.hsl }}
-                                    </div>
-                                    <div class="color-actions">
-                                        <button 
-                                            class="action-btn" 
-                                            :class="{ pinned: color.pinned }"
-                                            @click.stop="togglePin(color)"
-                                            :title="color.pinned ? 'Открепить цвет' : 'Закрепить цвет'"
-                                        >
-                                            <i class="fas fa-thumbtack"></i>
-                                        </button>
-                                        <button 
-                                            class="action-btn" 
-                                            @click.stop="regenerateColor(index)"
-                                            title="Сгенерировать новый цвет"
-                                        >
-                                            <i class="fas fa-sync-alt"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
+                    <!-- Быстрые действия -->
+                    <div style="margin-top: 20px;">
+                        <h3 style="font-size: 16px; margin-bottom: 10px;">Быстрые исправления:</h3>
                         <div class="btn-group">
-                            <button class="btn btn-secondary" @click="colorFormat = 'hex'"
-                                    :class="{ active: colorFormat === 'hex' }">
-                                HEX
+                            <button class="btn btn-small btn-secondary" @click="paletteType = 'complementary'">
+                                <i class="fas fa-exchange-alt"></i> Комплементарная
                             </button>
-                            <button class="btn btn-secondary" @click="colorFormat = 'rgb'"
-                                    :class="{ active: colorFormat === 'rgb' }">
-                                RGB
+                            <button class="btn btn-small btn-secondary" @click="mood = 'energetic'">
+                                <i class="fas fa-bolt"></i> Энергичное
                             </button>
-                            <button class="btn btn-secondary" @click="colorFormat = 'hsl'"
-                                    :class="{ active: colorFormat === 'hsl' }">
-                                HSL
+                            <button class="btn btn-small btn-secondary" @click="autoFixContrast">
+                                <i class="fas fa-magic"></i> Авто-исправление
                             </button>
                         </div>
                     </div>
                 </div>
-            `,
-            methods: {
-                calculateContrastRatings() {
-                    if (!this.palette || this.palette.length < 2) return [];
-                    
-                    const ratings = [];
-                    // Проверяем контраст между первыми двумя цветами
-                    const ratio = this.calculateContrast(this.palette[0].hex, this.palette[1].hex);
-                    const rating = this.getContrastRating(ratio);
-                    
-                    ratings.push({
-                        bg: this.palette[0].hex,
-                        text: this.palette[1].hex,
-                        ratio,
-                        rating
-                    });
-                    
-                    const lightColor = this.palette.find(c => c.l > 70)?.hex || '#ffffff';
-                    const darkColor = this.palette.find(c => c.l < 30)?.hex || '#000000';
-                    
-                    if (lightColor && darkColor) {
-                        const ratio2 = this.calculateContrast(lightColor, darkColor);
-                        const rating2 = this.getContrastRating(ratio2);
-                        
-                        ratings.push({
-                            bg: lightColor,
-                            text: darkColor,
-                            ratio: ratio2,
-                            rating: rating2
-                        });
-                    }
-                    
-                    return ratings;
-                }
-            }
-        };
+            </div>
+            
+            <!-- Цветовой круг -->
+            <div class="control-card">
+                <h2 class="card-title"><i class="fas fa-circle"></i> Цветовой круг</h2>
+                <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                    Цвета вашей палитры на цветовом круге. Разные типы палитр создают разные геометрические формы.
+                </p>
+                <div class="color-wheel-container">
+                    <div class="color-wheel">
+                        <div v-for="(point, index) in colorPoints" :key="index" 
+                             class="wheel-point" 
+                             :style="{
+                                 left: point.x + 'px',
+                                 top: point.y + 'px',
+                                 backgroundColor: point.color,
+                                 border: '3px solid white',
+                                 boxShadow: '0 0 0 1px rgba(0,0,0,0.3)',
+                                 cursor: 'pointer'
+                             }"
+                             @click="copyToClipboard(palette[index])"
+                             :title="'Цвет ' + (index + 1) + ': ' + palette[index].hex + ' (клик для копирования)'">
+                            <div style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); 
+                                        background: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;
+                                        white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2); font-weight: 600;">
+                                {{ index + 1 }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Палитра -->
+            <div class="palette-container">
+                <h2 class="card-title"><i class="fas fa-palette"></i> Цветовая палитра</h2>
+                <div class="palette">
+                    <div 
+                        class="color-card" 
+                        v-for="(color, index) in palette" 
+                        :key="index"
+                        :style="{ backgroundColor: color.hex }"
+                        @click="copyToClipboard(color)"
+                    >
+                        <div class="color-info">
+                            <div class="color-values" :style="{ 
+                                color: getContrastColor(color.hex),
+                                backgroundColor: 'rgba(255,255,255,0.9)',
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                fontFamily: 'monospace'
+                            }">
+                                {{ colorFormat === 'hex' ? color.hex : colorFormat === 'rgb' ? color.rgb : color.hsl }}
+                            </div>
+                            <div class="color-actions">
+                                <button 
+                                    class="action-btn" 
+                                    :class="{ pinned: color.pinned }"
+                                    @click.stop="togglePin(color)"
+                                    :title="color.pinned ? 'Открепить цвет' : 'Закрепить цвет'"
+                                    :style="{ 
+                                        color: getContrastColor(color.hex),
+                                        backgroundColor: 'rgba(255,255,255,0.9)'
+                                    }"
+                                >
+                                    <i class="fas fa-thumbtack"></i>
+                                </button>
+                                <button 
+                                    class="action-btn" 
+                                    @click.stop="regenerateColor(index)"
+                                    title="Сгенерировать новый цвет"
+                                    :style="{ 
+                                        color: getContrastColor(color.hex),
+                                        backgroundColor: 'rgba(255,255,255,0.9)'
+                                    }"
+                                >
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div style="margin-top: auto;">
+                            <div style="font-size: 12px; background: rgba(255,255,255,0.9); padding: 4px 8px; 
+                                        border-radius: 4px; margin-top: 10px; color: #333;">
+                                <div>Контраст с текстом: {{ calculateContrast(color.hex, getContrastColor(color.hex)).toFixed(2) }}:1</div>
+                                <div style="font-size: 11px; margin-top: 2px;">
+                                    HSL: {{ color.h }}°, {{ color.s }}%, {{ color.l }}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="btn-group" style="margin-top: 20px;">
+                    <button class="btn btn-secondary" @click="colorFormat = 'hex'"
+                            :class="{ active: colorFormat === 'hex' }">
+                        HEX
+                    </button>
+                    <button class="btn btn-secondary" @click="colorFormat = 'rgb'"
+                            :class="{ active: colorFormat === 'rgb' }">
+                        RGB
+                    </button>
+                    <button class="btn btn-secondary" @click="colorFormat = 'hsl'"
+                            :class="{ active: colorFormat === 'hsl' }">
+                        HSL
+                    </button>
+                    <button class="btn btn-primary" @click="generateAccessiblePalette">
+                        <i class="fas fa-universal-access"></i> Доступная палитра
+                    </button>
+                    <button class="btn btn-primary" @click="autoFixContrast">
+                        <i class="fas fa-magic"></i> Улучшить контрастность
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Уведомление -->
+            <div v-if="showNotification" class="notification">
+                <i class="fas fa-check-circle"></i> Скопировано: {{ copiedColor }}
+            </div>
+        </div>
+    `
+};
 
         const LibraryPage = {
             setup() {
